@@ -1,0 +1,130 @@
+const express = require('express');
+const router = express.Router();
+const { MusicCds } = require('../models');
+const { validateToken } = require('../middleware/AuthMiddleware');
+
+// Error handling middleware
+const handleErrors = (res, error) => {
+  console.error(error);
+  res.status(500).json({ message: 'Internal Server Error' });
+};
+
+router.post('/add', validateToken, async (req, res) => {
+  try {
+    const newMusicCd = await MusicCds.create({
+      ...req.body,
+      UserId: req.user.id
+    });
+
+    res.json(newMusicCd);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.get('/all', async (req, res) => {
+  try {
+    const listMusicCds = await MusicCds.findAll();
+    res.json(listMusicCds);
+  } catch (error) {
+    handleErrors(res, error);
+  }
+});
+
+router.get('/bySeller/Id/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const sellerData = await MusicCds.findAll({ where: { UserId: id } });
+    res.json(sellerData);
+  } catch (error) {
+    handleErrors(res, error);
+  }
+});
+
+router.get('/oneMusic/Id/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const singleData = await MusicCds.findAll({ where: { id: id } });
+    res.json(singleData);
+  } catch (error) {
+    handleErrors(res, error);
+  }
+});
+
+router.delete('/bySeller/Id/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const existingRecord = await MusicCds.findByPk(id);
+
+    if (!existingRecord) {
+      return res.status(404).json({ message: 'Record not found' });
+    }
+
+    const result = await MusicCds.destroy({
+      where: { id: id }
+    });
+
+    res.json({ message: 'Record deleted successfully', result });
+  } catch (error) {
+    handleErrors(res, error);
+  }
+});
+
+router.put('/bySeller/Id/:id', validateToken, async (req, res) => {
+  try {
+    const musicCdId = req.params.id;
+    const { UserId, ...updateData } = req.body;
+
+    await MusicCds.update({ ...updateData, UserId: req.user.id }, { where: { id: musicCdId } });
+    res.json(req.body);
+  } catch (error) {
+    handleErrors(res, error);
+  }
+});
+
+module.exports = router;
+
+
+//----------------------username
+
+import React, { useState, useEffect } from 'react';
+
+const MusicCdList = () => {
+  const [musicCds, setMusicCds] = useState([]);
+
+  useEffect(() => {
+    // Fetch music CD data from your backend
+    fetch('/api/musicCds/allWithUsers')
+      .then(response => response.json())
+      .then(data => setMusicCds(data))
+      .catch(error => console.error(error));
+  }, []);
+
+  return (
+    <div>
+      <h1>Music CDs with Users</h1>
+      <table>
+        <thead>
+          <tr>
+            <th>Album Name</th>
+            <th>Singer</th>
+            <th>Composer Name</th>
+            <th>User</th>
+          </tr>
+        </thead>
+        <tbody>
+          {musicCds.map(cd => (
+            <tr key={cd.id}>
+              <td>{cd.album_name}</td>
+              <td>{cd.singer}</td>
+              <td>{cd.composer_name}</td>
+              <td>{cd.User.username}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+export default MusicCdList;
